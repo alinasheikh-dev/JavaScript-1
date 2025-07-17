@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Match Game</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for game icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom styles for the Inter font and smooth transitions */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #e2e8f0; /* Light blue-gray background */
+        }
+
+        /* General button styling for hover effects */
+        .btn-game {
+            transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-game:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .btn-game:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Game Board Grid */
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 columns */
+            gap: 1rem; /* Space between cards */
+            max-width: 600px; /* Max width for the game board */
+            margin: 0 auto; /* Center the board */
+        }
+
+        /* Flip Card specific styles */
+        .flip-card-container {
+            perspective: 1000px; /* Establishes a 3D perspective for child elements */
+            height: 120px; /* Fixed height for cards */
+            cursor: pointer;
+        }
+
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s; /* Smooth transition for the flip animation */
+            transform-style: preserve-3d; /* Crucial for 3D transformations */
+            border-radius: 12px; /* Rounded corners for the card */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+        }
+
+        /* When the 'flipped' class is added, rotate the inner card */
+        .flip-card-container.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        /* Styles for matched cards - they stay flipped and have a different look */
+        .flip-card-container.matched .flip-card-inner {
+            transform: rotateY(180deg); /* Ensure it stays flipped */
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5); /* Green glow for matched */
+            pointer-events: none; /* Disable clicks on matched cards */
+        }
+
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Hide the back of the element when facing away */
+            backface-visibility: hidden; /* Standard property for hiding backface */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px; /* Rounded corners for front/back faces */
+            font-size: 3rem; /* Large icon size */
+        }
+
+        .flip-card-front {
+            background-color: #60a5fa; /* Blue background for the front (faced down) */
+            color: #ffffff; /* White text/icon */
+            border: 2px solid #3b82f6;
+        }
+
+        .flip-card-back {
+            background-color: #dbeafe; /* Lighter blue background for the back (revealed) */
+            color: #1d4ed8; /* Darker blue text/icon */
+            transform: rotateY(180deg); /* Initially rotate the back to be hidden */
+            border: 2px solid #93c5fd;
+        }
+
+        /* Message box styling (instead of alert) */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        #message-box.show {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 w-full max-w-3xl text-center space-y-8">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">Memory Match Game</h1>
+
+        <!-- Game Info and Controls -->
+        <div class="flex justify-between items-center mb-8 px-4 py-3 bg-gray-100 rounded-lg border border-gray-200">
+            <div class="text-xl font-semibold text-gray-700">
+                Matches: <span id="matches-display" class="text-green-600">0</span> / <span id="total-pairs"></span>
+            </div>
+            <button id="reset-game-btn" class="btn-game bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75">
+                Reset Game
+            </button>
+        </div>
+
+        <!-- Game Board -->
+        <div id="game-board" class="mb-8">
+            <!-- Cards will be dynamically inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Custom Message Box (instead of alert) -->
+    <div id="message-box" class="hidden">
+        <p id="message-text" class="text-2xl font-bold text-gray-800 mb-4"></p>
+        <button id="close-message-btn" class="btn-game bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg">
+            OK
+        </button>
+    </div>
+
+    <script>
+        // Array of Font Awesome icons for the cards. Each icon will appear twice.
+        const cardIcons = [
+            'fa-star', 'fa-heart', 'fa-gem', 'fa-cloud',
+            'fa-moon', 'fa-sun', 'fa-leaf', 'fa-bell',
+            'fa-flask', 'fa-robot', 'fa-tree', 'fa-anchor'
+        ];
+
+        let cards = []; // Stores the shuffled cards for the current game
+        let flippedCards = []; // Stores the two cards currently flipped by the player
+        let matchedPairs = 0; // Counts the number of matched pairs
+        let lockBoard = false; // Prevents clicking more than two cards at a time
+
+        const gameBoard = document.getElementById('game-board');
+        const matchesDisplay = document.getElementById('matches-display');
+        const totalPairsDisplay = document.getElementById('total-pairs');
+        const resetGameBtn = document.getElementById('reset-game-btn');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const closeMessageBtn = document.getElementById('close-message-btn');
+
+        // Function to shuffle an array (Fisher-Yates algorithm)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+            }
+            return array;
+        }
+
+        // Function to initialize or reset the game board
+        function initializeGame() {
+            // Reset game state
+            flippedCards = [];
+            matchedPairs = 0;
+            lockBoard = false;
+            matchesDisplay.textContent = matchedPairs;
+            gameBoard.innerHTML = ''; // Clear existing cards
+
+            // Create pairs of icons and shuffle them
+            cards = [...cardIcons, ...cardIcons]; // Duplicate icons for pairs
+            shuffle(cards);
+
+            // Set total pairs display
+            totalPairsDisplay.textContent = cardIcons.length;
+
+            // Create card HTML elements and append to the board
+            cards.forEach((iconClass, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('flip-card-container');
+                cardElement.dataset.icon = iconClass; // Store the icon for matching
+                cardElement.dataset.index = index; // Store original index for reference
+
+                cardElement.innerHTML = `
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                            <i class="fas fa-question text-6xl"></i> <!-- Question mark on front -->
+                        </div>
+                        <div class="flip-card-back">
+                            <i class="fas ${iconClass}"></i> <!-- Actual icon on back -->
+                        </div>
+                    </div>
+                `;
+                cardElement.addEventListener('click', handleCardClick);
+                gameBoard.appendChild(cardElement);
+            });
+        }
+
+        // Function to handle a card click
+        function handleCardClick() {
+            // If board is locked or card is already flipped/matched, do nothing
+            if (lockBoard || this.classList.contains('flipped') || this.classList.contains('matched')) {
+                return;
+            }
+
+            this.classList.add('flipped'); // Flip the clicked card
+
+            // Add the flipped card to our temporary array
+            flippedCards.push(this);
+
+            // If two cards are flipped, check for a match
+            if (flippedCards.length === 2) {
+                lockBoard = true; // Lock the board to prevent further clicks
+                checkForMatch();
+            }
+        }
+
+        // Function to check if the two flipped cards match
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.icon === card2.dataset.icon;
+
+            if (isMatch) {
+                // If they match, mark them as matched and update score
+                matchedPairs++;
+                matchesDisplay.textContent = matchedPairs;
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                resetFlippedCards(); // Clear flipped cards array
+                checkGameOver(); // Check if all pairs are found
+            } else {
+                // If no match, flip them back after a short delay
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    resetFlippedCards(); // Clear flipped cards array
+                }, 1000); // Wait 1 second before flipping back
+            }
+        }
+
+        // Function to reset the flippedCards array and unlock the board
+        function resetFlippedCards() {
+            flippedCards = [];
+            lockBoard = false;
+        }
+
+        // Function to check if the game is over
+        function checkGameOver() {
+            if (matchedPairs === cardIcons.length) {
+                showMessage('Congratulations! You matched all pairs!');
+            }
+        }
+
+        // Function to show a custom message box
+        function showMessage(msg) {
+            messageText.textContent = msg;
+            messageBox.classList.add('show');
+        }
+
+        // Event listener for the Reset Game button
+        resetGameBtn.addEventListener('click', () => {
+            initializeGame();
+            messageBox.classList.remove('show'); // Hide message box if visible
+        });
+
+        // Event listener for the Close Message Box button
+        closeMessageBtn.addEventListener('click', () => {
+            messageBox.classList.remove('show');
+        });
+
+        // Initialize the game when the page loads
+        initializeGame();
+    </script>
+</body>
+</html>
